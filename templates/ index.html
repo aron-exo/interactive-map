@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Interactive Map</title>
-    <meta charset="utf-8" />
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Map</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
     <style>
@@ -64,10 +65,13 @@
             fetch('/upload_to_arcgis', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ geometries: geometries })
+                body: JSON.stringify({ dataframes: geometries })
             })
             .then(response => response.json())
-            .then(data => alert('Geometries uploaded to ArcGIS!'))
+            .then(data => {
+                alert('Geometries uploaded to ArcGIS!');
+                window.open(data.webmap_url, '_blank');
+            })
             .catch(error => console.error('Error:', error));
         });
     </script>
