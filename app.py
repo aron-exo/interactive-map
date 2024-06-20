@@ -6,10 +6,11 @@ import os
 import json
 from arcgis.gis import GIS
 from arcgis.features import SpatialDataFrame
+import pandas as pd
 
 app = Flask(__name__)
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
 # Database connection function
