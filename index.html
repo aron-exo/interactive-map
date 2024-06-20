@@ -16,35 +16,59 @@
 <body>
     <h1>Interactive Map</h1>
     <div id="map"></div>
+    <button id="uploadButton">Upload to ArcGIS</button>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script>
-        // Initialize the map
-        var map = L.map('map').setView([51.505, -0.09], 13);
-
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19
-        }).addTo(map);
-
-        // Initialize the FeatureGroup to store editable layers
+        var map = L.map('map').setView([34.0522, -118.2437], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
         var drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
-
-        // Initialize the draw control and pass it the FeatureGroup of editable layers
         var drawControl = new L.Control.Draw({
-            edit: {
-                featureGroup: drawnItems
-            }
+            edit: { featureGroup: drawnItems }
         });
         map.addControl(drawControl);
 
-        // Event handler for when a new layer (polygon) is created
+        function queryGeometries(polygon) {
+            fetch('/query_geometries', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ polygon: polygon })
+            })
+            .then(response => response.json())
+            .then(data => {
+                data.forEach(geometry => {
+                    var geojson = JSON.parse(geometry);
+                    L.geoJSON(geojson).addTo(map);
+                });
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
         map.on(L.Draw.Event.CREATED, function (event) {
             var layer = event.layer;
             drawnItems.addLayer(layer);
-            var coordinates = layer.getLatLngs();
-            alert('Polygon coordinates: ' + JSON.stringify(coordinates));
+            var coordinates = layer.toGeoJSON().geometry.coordinates;
+            var polygon = { "type": "Polygon", "coordinates": coordinates };
+            queryGeometries(polygon);
+        });
+
+        document.getElementById('uploadButton').addEventListener('click', function () {
+            var geometries = {};
+            drawnItems.eachLayer(function (layer) {
+                var geojson = layer.toGeoJSON();
+                if (!geometries[layer.options.layerName]) geometries[layer.options.layerName] = [];
+                geometries[layer.options.layerName].push(geojson);
+            });
+
+            fetch('/upload_to_arcgis', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ geometries: geometries })
+            })
+            .then(response => response.json())
+            .then(data => alert('Geometries uploaded to ArcGIS!'))
+            .catch(error => console.error('Error:', error));
         });
     </script>
 </body>
