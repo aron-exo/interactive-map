@@ -1,29 +1,3 @@
 # Ignore environment variable files
 .env
 
-# Ignore Python cache and temporary files
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# Ignore virtual environment directories
-venv/
-.venv/
-env/
-.env/
-
-# Ignore IDE and editor config files
-.vscode/
-.idea/
-.DS_Store
-*.sublime-workspace
-*.sublime-project
-
-# Ignore log files
-*.log
-
-# Ignore other system files
-Thumbs.db
-.DS_Store
