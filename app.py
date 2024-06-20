@@ -28,6 +28,10 @@ def connect_to_database():
         print(f"Connection error: {e}")
         return None
 
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 # Query geometries within a polygon for all relevant tables
 def query_geometries_within_polygon(polygon_geojson):
     conn = connect_to_database()
