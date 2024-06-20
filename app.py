@@ -90,16 +90,15 @@ def query_geometries():
     polygon = data['polygon']
     dataframes = query_geometries_within_polygon(json.dumps(polygon))
     
-    geometries = []
-    for df in dataframes:
-        geometries.extend(df['geometry'].tolist())
+    # Convert each dataframe to a dictionary and store in a list
+    dataframes_dicts = [df.to_dict(orient='records') for df in dataframes]
     
-    return jsonify(geometries)
+    return jsonify(dataframes_dicts)
 
 @app.route('/upload_to_arcgis', methods=['POST'])
 def upload_to_arcgis():
     data = request.json
-    all_dataframes = data['dataframes']
+    all_dataframes_dicts = data['dataframes']
 
     # Replace with your ArcGIS Online credentials
     gis = GIS("https://www.arcgis.com", os.getenv("ARCGIS_USERNAME"), os.getenv("ARCGIS_PASSWORD"))
@@ -107,8 +106,8 @@ def upload_to_arcgis():
     # Create a WebMap
     webmap = WebMap()
 
-    for df_dict in all_dataframes:
-        df = pd.DataFrame.from_dict(df_dict)
+    for df_dict in all_dataframes_dicts:
+        df = pd.DataFrame(df_dict)
         sdf = pd.DataFrame.spatial.from_df(df, geometry_column='geometry', sr=3857)
         webmap.add_layer(sdf)
 
