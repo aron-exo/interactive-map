@@ -1,11 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, render_template, request, jsonify
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 import os
 import json
 from arcgis.gis import GIS
-from arcgis.features import SpatialDataFrame
+from arcgis.features import GeoAccessor, GeoSeriesAccessor
+from arcgis.mapping import WebMap
 import pandas as pd
 
 app = Flask(__name__)
@@ -39,15 +40,15 @@ def query_geometries_within_polygon(polygon_geojson):
         return []
 
     tables = get_tables_with_shape_column(conn)
-    all_geometries = []
+    all_dataframes = []
 
     for table in tables:
-        geometries = query_geometries_from_table(conn, table, polygon_geojson)
-        if geometries:
-            all_geometries.extend(geometries)
+        df = query_geometries_from_table(conn, table, polygon_geojson)
+        if not df.empty:
+            all_dataframes.append(df)
 
     conn.close()
-    return all_geometries
+    return all_dataframes
 
 # Get all tables with a "SHAPE" column
 def get_tables_with_shape_column(conn):
@@ -67,7 +68,7 @@ def get_tables_with_shape_column(conn):
 def query_geometries_from_table(conn, table_name, polygon_geojson):
     try:
         query = f"""
-        SELECT ST_AsGeoJSON(geom) as geometry
+        SELECT *, ST_AsGeoJSON(geom) as geometry
         FROM public.{table_name}
         WHERE ST_Intersects(
             ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON(geom), srid), 4326),
@@ -78,35 +79,43 @@ def query_geometries_from_table(conn, table_name, polygon_geojson):
         );
         """
         df = pd.read_sql(query, conn)
-        return df['geometry'].tolist()
+        return df
     except Exception as e:
         print(f"Query error in table {table_name}: {e}")
-        return []
+        return pd.DataFrame()
 
 @app.route('/query_geometries', methods=['POST'])
 def query_geometries():
     data = request.json
     polygon = data['polygon']
-    geometries = query_geometries_within_polygon(json.dumps(polygon))
+    dataframes = query_geometries_within_polygon(json.dumps(polygon))
+    
+    geometries = []
+    for df in dataframes:
+        geometries.extend(df['geometry'].tolist())
+    
     return jsonify(geometries)
 
 @app.route('/upload_to_arcgis', methods=['POST'])
 def upload_to_arcgis():
     data = request.json
-    geometries = data['geometries']
+    all_dataframes = data['dataframes']
 
     # Replace with your ArcGIS Online credentials
     gis = GIS("https://www.arcgis.com", os.getenv("ARCGIS_USERNAME"), os.getenv("ARCGIS_PASSWORD"))
 
-    # Create a folder for the new layers
-    gis.content.create_folder('MyGeometries')
+    # Create a WebMap
+    webmap = WebMap()
 
-    for table, geoms in geometries.items():
-        sdata = SpatialDataFrame.from_features(geoms)
-        sdata.spatial.set_geometry('SHAPE')
-        sdata.spatial.to_featurelayer(title=table, gis=gis, folder='MyGeometries')
+    for df_dict in all_dataframes:
+        df = pd.DataFrame.from_dict(df_dict)
+        sdf = pd.DataFrame.spatial.from_df(df, geometry_column='geometry', sr=3857)
+        webmap.add_layer(sdf)
 
-    return jsonify({'status': 'success'})
+    # Save the webmap
+    webmap_item = webmap.save({'title': 'WebMap Title', 'snippet': 'Description of the webmap', 'tags': 'test'})
+    
+    return jsonify({'status': 'success', 'webmap_url': webmap_item.homepage})
 
 if __name__ == '__main__':
     app.run(debug=True)
