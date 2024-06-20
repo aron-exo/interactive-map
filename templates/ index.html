@@ -55,11 +55,9 @@
         });
 
         document.getElementById('uploadButton').addEventListener('click', function () {
-            var geometries = {};
+            var geometries = [];
             drawnItems.eachLayer(function (layer) {
-                var geojson = layer.toGeoJSON();
-                if (!geometries[layer.options.layerName]) geometries[layer.options.layerName] = [];
-                geometries[layer.options.layerName].push(geojson);
+                geometries.push(layer.toGeoJSON());
             });
 
             fetch('/upload_to_arcgis', {
