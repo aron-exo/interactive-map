@@ -31,7 +31,14 @@ def connect_to_database():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        template_path = os.path.join(app.template_folder, 'index.html')
+        if os.path.exists(template_path):
+            return render_template('index.html')
+        else:
+            return f"Template not found at {template_path}", 500
+    except Exception as e:
+        return str(e), 500
 
 # Query geometries within a polygon for all relevant tables
 def query_geometries_within_polygon(polygon_geojson):
